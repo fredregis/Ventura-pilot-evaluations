@@ -1,0 +1,21 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+build/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated files
+generate_manual.py
