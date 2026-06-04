@@ -234,15 +234,15 @@ struct EvaluationDetailView: View {
 
     private func generalCommentsSection(_ evaluation: Evaluation) -> some View {
         Section("General Comments") {
-            TextField("Enter general comments...", text: Binding(
+            TextEditor(text: Binding(
                 get: { evaluation.generalComments },
                 set: { newValue in
                     var updated = evaluation
                     updated.generalComments = newValue
                     store.updateEvaluation(updated)
                 }
-            ), axis: .vertical)
-            .lineLimit(3...8)
+            ))
+            .frame(minHeight: 100)
         }
     }
 
