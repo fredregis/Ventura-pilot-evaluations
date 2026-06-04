@@ -148,6 +148,22 @@ struct PDFGenerator {
 
         y += titleSize.height + 12
 
+        // General comments
+        if !evaluation.generalComments.isEmpty {
+            let genLabelAttr: [NSAttributedString.Key: Any] = [.font: sectionTitleFont]
+            "General Comments:".draw(at: CGPoint(x: margin, y: y), withAttributes: genLabelAttr)
+            y += 14
+            let genRect = CGRect(x: margin, y: y, width: contentWidth, height: 50)
+            context.setStrokeColor(UIColor.lightGray.cgColor)
+            context.setLineWidth(0.25)
+            context.stroke(genRect)
+            evaluation.generalComments.draw(
+                in: CGRect(x: margin + 4, y: y + 4, width: contentWidth - 8, height: 42),
+                withAttributes: [.font: bodyFont]
+            )
+            y += 58
+        }
+
         // Comments table header
         let codeColWidth: CGFloat = 70
         let gradeColWidth: CGFloat = 40

@@ -113,12 +113,34 @@ struct Evaluation: Codable, Identifiable {
     var createdDate: Date = Date()
     var sections: [EvaluationSection] = []
     var flightLogs: [FlightLogEntry] = []
+    var generalComments: String = ""
     var pilotSignature: Data?
     var pilotSignatureDate: Date?
     var evaluatorSignature: Data?
     var evaluatorSignatureDate: Date?
     var currentSession: Int = 1
     var isComplete: Bool = false
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        pilotInfo = try container.decode(PilotInfo.self, forKey: .pilotInfo)
+        evaluationType = try container.decode(EvaluationType.self, forKey: .evaluationType)
+        evaluatorName = try container.decode(String.self, forKey: .evaluatorName)
+        certifyingPilotName = try container.decodeIfPresent(String.self, forKey: .certifyingPilotName) ?? ""
+        createdDate = try container.decode(Date.self, forKey: .createdDate)
+        sections = try container.decode([EvaluationSection].self, forKey: .sections)
+        flightLogs = try container.decodeIfPresent([FlightLogEntry].self, forKey: .flightLogs) ?? []
+        generalComments = try container.decodeIfPresent(String.self, forKey: .generalComments) ?? ""
+        pilotSignature = try container.decodeIfPresent(Data.self, forKey: .pilotSignature)
+        pilotSignatureDate = try container.decodeIfPresent(Date.self, forKey: .pilotSignatureDate)
+        evaluatorSignature = try container.decodeIfPresent(Data.self, forKey: .evaluatorSignature)
+        evaluatorSignatureDate = try container.decodeIfPresent(Date.self, forKey: .evaluatorSignatureDate)
+        currentSession = try container.decodeIfPresent(Int.self, forKey: .currentSession) ?? 1
+        isComplete = try container.decodeIfPresent(Bool.self, forKey: .isComplete) ?? false
+    }
 
     var hasUnsatisfactoryItems: Bool {
         sections.flatMap(\.items).contains { $0.isUnsatisfactory }

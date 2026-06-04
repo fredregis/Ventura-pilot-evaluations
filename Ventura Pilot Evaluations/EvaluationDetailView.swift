@@ -39,6 +39,8 @@ struct EvaluationDetailView: View {
             pilotInfoSection(evaluation)
             progressSection(evaluation)
 
+            generalCommentsSection(evaluation)
+
             if evaluation.hasComments {
                 commentsSection(evaluation)
             }
@@ -227,6 +229,20 @@ struct EvaluationDetailView: View {
                     Text("Enter the certifying pilot's name to finalize this evaluation.")
                 }
             }
+        }
+    }
+
+    private func generalCommentsSection(_ evaluation: Evaluation) -> some View {
+        Section("General Comments") {
+            TextField("Enter general comments...", text: Binding(
+                get: { evaluation.generalComments },
+                set: { newValue in
+                    var updated = evaluation
+                    updated.generalComments = newValue
+                    store.updateEvaluation(updated)
+                }
+            ), axis: .vertical)
+            .lineLimit(3...8)
         }
     }
 

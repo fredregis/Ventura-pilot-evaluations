@@ -189,8 +189,8 @@ struct ItemGradeRow: View {
                 gradePicker
             }
 
-            if item.isUnsatisfactory {
-                TextField("Comment required for \(item.id)...", text: $item.comment, axis: .vertical)
+            if item.isGraded {
+                TextField(item.isUnsatisfactory ? "Comment required for \(item.id)..." : "Comment for \(item.id)...", text: $item.comment, axis: .vertical)
                     .font(.caption)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
