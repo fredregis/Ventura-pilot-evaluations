@@ -11,21 +11,37 @@ struct FlightLogView: View {
 
     var body: some View {
         List {
-            ForEach($entries) { $entry in
-                FlightLogEntryRow(entry: $entry) {
-                    hasChanges = true
+            ForEach(entries.indices, id: \.self) { index in
+                Section {
+                    FlightLogEntryRow(entry: $entries[index], crewNames: crewNames) {
+                        hasChanges = true
+                    }
+                } header: {
+                    HStack {
+                        Label("Flight \(index + 1)", systemImage: "airplane")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.primary)
+                            .textCase(nil)
+                        Spacer()
+                        Button(role: .destructive) {
+                            entries.remove(at: index)
+                            hasChanges = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.caption)
+                        }
+                    }
+                    .padding(.vertical, 2)
                 }
             }
-            .onDelete { offsets in
-                entries.remove(atOffsets: offsets)
-                hasChanges = true
-            }
 
-            Button {
-                entries.append(FlightLogEntry())
-                hasChanges = true
-            } label: {
-                Label("Add Flight", systemImage: "plus.circle.fill")
+            Section {
+                Button {
+                    entries.append(FlightLogEntry())
+                    hasChanges = true
+                } label: {
+                    Label("Add Flight", systemImage: "plus.circle.fill")
+                }
             }
 
             if !entries.isEmpty {
@@ -54,6 +70,7 @@ struct FlightLogView: View {
                 }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Flight Log")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -71,6 +88,19 @@ struct FlightLogView: View {
         .onDisappear {
             if hasChanges { saveChanges() }
         }
+    }
+
+    private var crewNames: [String] {
+        guard let evaluation = store.evaluation(for: evaluationId) else { return [] }
+        var names: [String] = []
+        let pilotName = evaluation.pilotInfo.fullName.trimmingCharacters(in: .whitespaces)
+        if !pilotName.isEmpty { names.append(pilotName) }
+        evaluation.evaluatorName
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .forEach { names.append($0) }
+        return names
     }
 
     private var totalBlockTime: Double {
@@ -105,6 +135,7 @@ struct FlightLogView: View {
 
 struct FlightLogEntryRow: View {
     @Binding var entry: FlightLogEntry
+    let crewNames: [String]
     let onChange: () -> Void
 
     var body: some View {
@@ -167,26 +198,17 @@ struct FlightLogEntryRow: View {
                 }
             }
 
-            HStack {
-                VStack(alignment: .leading) {
-                    Text("Pilot Flying (PF)")
-                        .font(.caption).foregroundStyle(.secondary)
-                    TextField("Name", text: $entry.pf)
-                        .textFieldStyle(.roundedBorder)
-                        .autocorrectionDisabled()
-                        .font(.subheadline)
-                        .onChange(of: entry.pf) { _, _ in onChange() }
-                }
-                VStack(alignment: .leading) {
-                    Text("Pilot Monitoring (PM)")
-                        .font(.caption).foregroundStyle(.secondary)
-                    TextField("Name", text: $entry.pm)
-                        .textFieldStyle(.roundedBorder)
-                        .autocorrectionDisabled()
-                        .font(.subheadline)
-                        .onChange(of: entry.pm) { _, _ in onChange() }
-                }
+            Picker("Pilot Flying (PF)", selection: $entry.pf) {
+                Text("—").tag("")
+                ForEach(crewNames, id: \.self) { Text($0).tag($0) }
             }
+            .onChange(of: entry.pf) { _, _ in onChange() }
+
+            Picker("Pilot Monitoring (PM)", selection: $entry.pm) {
+                Text("—").tag("")
+                ForEach(crewNames, id: \.self) { Text($0).tag($0) }
+            }
+            .onChange(of: entry.pm) { _, _ in onChange() }
 
             Stepper("Day Landings: \(entry.dayLandings)", value: $entry.dayLandings, in: 0...99)
                 .font(.subheadline)
