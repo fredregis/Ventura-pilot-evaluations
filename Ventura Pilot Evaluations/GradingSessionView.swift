@@ -31,6 +31,7 @@ struct GradingSessionView: View {
                 }
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle(showOnlyUnsatisfactory ? "Review Unsatisfactory" : "Grade Items")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -190,11 +191,24 @@ struct ItemGradeRow: View {
             }
 
             if item.isGraded {
-                TextField(item.isUnsatisfactory ? "Comment required for \(item.id)..." : "Comment for \(item.id)...", text: $item.comment, axis: .vertical)
-                    .font(.caption)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
-                    .onChange(of: item.comment) { _, _ in onChange() }
+                ZStack(alignment: .topLeading) {
+                    if item.comment.isEmpty {
+                        Text(item.isUnsatisfactory ? "Comment required for \(item.id)..." : "Comment for \(item.id)...")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .padding(.horizontal, 5)
+                            .padding(.top, 8)
+                            .allowsHitTesting(false)
+                    }
+                    TextEditor(text: $item.comment)
+                        .font(.caption)
+                        .frame(minHeight: 54)
+                        .scrollContentBackground(.hidden)
+                        .onChange(of: item.comment) { _, _ in onChange() }
+                }
+                .padding(4)
+                .background(Color(.systemGray6))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
         .padding(.vertical, 2)

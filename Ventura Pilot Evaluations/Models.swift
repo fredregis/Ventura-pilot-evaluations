@@ -102,6 +102,29 @@ struct FlightLogEntry: Codable, Identifiable {
     var departure: String = ""
     var arrival: String = ""
     var blockTime: String = ""
+    var tailNumber: String = ""
+    var pf: String = ""
+    var pm: String = ""
+    var avionics: String = ""
+    var dayLandings: Int = 0
+    var nightLandings: Int = 0
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        departure = try container.decodeIfPresent(String.self, forKey: .departure) ?? ""
+        arrival = try container.decodeIfPresent(String.self, forKey: .arrival) ?? ""
+        blockTime = try container.decodeIfPresent(String.self, forKey: .blockTime) ?? ""
+        tailNumber = try container.decodeIfPresent(String.self, forKey: .tailNumber) ?? ""
+        pf = try container.decodeIfPresent(String.self, forKey: .pf) ?? ""
+        pm = try container.decodeIfPresent(String.self, forKey: .pm) ?? ""
+        avionics = try container.decodeIfPresent(String.self, forKey: .avionics) ?? ""
+        dayLandings = try container.decodeIfPresent(Int.self, forKey: .dayLandings) ?? 0
+        nightLandings = try container.decodeIfPresent(Int.self, forKey: .nightLandings) ?? 0
+    }
 }
 
 struct Evaluation: Codable, Identifiable {

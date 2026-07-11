@@ -45,14 +45,14 @@ struct NewEvaluationView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Section("Aircraft") {
+                Section(header: Text("Aircraft"), footer: Text("Per-leg tail numbers are tracked in the Flight Log. Enter a summary here if known at the start.")) {
                     Picker("Aircraft Type", selection: $pilotInfo.aircraftType) {
                         ForEach(AircraftType.allCases, id: \.self) { type in
                             Text(type.rawValue).tag(type)
                         }
                     }
                     .pickerStyle(.segmented)
-                    TextField("N Number(s)", text: $pilotInfo.nNumbers)
+                    TextField("N Number(s), e.g. N123AB, N456CD", text: $pilotInfo.nNumbers)
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.characters)
                 }

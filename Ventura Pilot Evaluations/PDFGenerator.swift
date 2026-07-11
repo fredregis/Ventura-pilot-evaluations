@@ -9,16 +9,36 @@ struct PDFGenerator {
 
         let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
 
-        return renderer.pdfData { context in
-            context.beginPage()
-            drawPage1(context: context.cgContext, rect: pageRect, margin: margin, evaluation: evaluation)
+        return renderer.pdfData { pdfContext in
+            pdfContext.beginPage()
+            drawPage1(context: pdfContext.cgContext, rect: pageRect, margin: margin, evaluation: evaluation)
 
-            context.beginPage()
-            drawPage2(context: context.cgContext, rect: pageRect, margin: margin, evaluation: evaluation)
+            pdfContext.beginPage()
+            drawPage2(pdfContext: pdfContext, rect: pageRect, margin: margin, evaluation: evaluation)
 
-            context.beginPage()
-            drawPage3(context: context.cgContext, rect: pageRect, margin: margin, evaluation: evaluation)
+            pdfContext.beginPage()
+            drawPage3(context: pdfContext.cgContext, rect: pageRect, margin: margin, evaluation: evaluation)
         }
+    }
+
+    private static func gradeColor(_ grade: Grade) -> UIColor {
+        switch grade {
+        case .notProficient: return .systemRed
+        case .gainingProficiency: return .systemOrange
+        case .proficient: return UIColor(red: 0.2, green: 0.65, blue: 0.2, alpha: 1)
+        case .notApplicable, .notEvaluated: return .darkGray
+        }
+    }
+
+    private static func commentRowHeight(_ text: String, width: CGFloat, font: UIFont) -> CGFloat {
+        guard !text.isEmpty else { return 20 }
+        let rect = (text as NSString).boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font],
+            context: nil
+        )
+        return max(20, ceil(rect.height) + 12)
     }
 
     // MARK: - Page 1: Evaluation Grid
@@ -108,13 +128,7 @@ struct PDFGenerator {
                     item.name.draw(at: CGPoint(x: colX + 20, y: sectionY + 2), withAttributes: [.font: bodyFont])
 
                     if let grade = item.currentGrade {
-                        let gradeColor: UIColor = switch grade {
-                        case .notProficient: .systemRed
-                        case .gainingProficiency: .systemOrange
-                        case .proficient: UIColor(red: 0.2, green: 0.65, blue: 0.2, alpha: 1)
-                        case .notApplicable, .notEvaluated: .darkGray
-                        }
-                        grade.shortName.draw(at: CGPoint(x: colX + colWidth - 24, y: sectionY + 2), withAttributes: [.font: UIFont.boldSystemFont(ofSize: 8), .foregroundColor: gradeColor])
+                        grade.shortName.draw(at: CGPoint(x: colX + colWidth - 24, y: sectionY + 2), withAttributes: [.font: UIFont.boldSystemFont(ofSize: 8), .foregroundColor: gradeColor(grade)])
                     }
 
                     sectionY += rowHeight
@@ -125,9 +139,10 @@ struct PDFGenerator {
         }
     }
 
-    // MARK: - Page 2: Comments
+    // MARK: - Page 2: Comments + Signatures
 
-    private static func drawPage2(context: CGContext, rect: CGRect, margin: CGFloat, evaluation: Evaluation) {
+    private static func drawPage2(pdfContext: UIGraphicsPDFRendererContext, rect: CGRect, margin: CGFloat, evaluation: Evaluation) {
+        let context = pdfContext.cgContext
         let contentWidth = rect.width - margin * 2
         let headerFont = UIFont.boldSystemFont(ofSize: 16)
         let sectionTitleFont = UIFont.boldSystemFont(ofSize: 9)
@@ -136,19 +151,15 @@ struct PDFGenerator {
 
         var y = drawPageHeader(rect: rect, margin: margin)
 
-        // Title
         let title = "Pilot Evaluation Worksheet"
         let titleAttr: [NSAttributedString.Key: Any] = [.font: headerFont]
         let titleSize = title.size(withAttributes: titleAttr)
         title.draw(at: CGPoint(x: (rect.width - titleSize.width) / 2, y: y), withAttributes: titleAttr)
-
-        let pageLabel = "Page 2 of 3"
+        let pageLabel = "Page 2"
         let pageLabelSize = pageLabel.size(withAttributes: [.font: bodyFont])
         pageLabel.draw(at: CGPoint(x: rect.width - margin - pageLabelSize.width, y: y + 4), withAttributes: [.font: bodyFont])
-
         y += titleSize.height + 12
 
-        // General comments
         if !evaluation.generalComments.isEmpty {
             let genLabelAttr: [NSAttributedString.Key: Any] = [.font: sectionTitleFont]
             "General Comments:".draw(at: CGPoint(x: margin, y: y), withAttributes: genLabelAttr)
@@ -164,7 +175,6 @@ struct PDFGenerator {
             y += 58
         }
 
-        // Comments table header
         let codeColWidth: CGFloat = 70
         let gradeColWidth: CGFloat = 40
         let commentColWidth = contentWidth - codeColWidth - gradeColWidth
@@ -173,52 +183,53 @@ struct PDFGenerator {
         context.fill(CGRect(x: margin, y: y, width: codeColWidth, height: 16))
         context.fill(CGRect(x: margin + codeColWidth, y: y, width: gradeColWidth, height: 16))
         context.fill(CGRect(x: margin + codeColWidth + gradeColWidth, y: y, width: commentColWidth, height: 16))
-
         "Element Code/s:".draw(at: CGPoint(x: margin + 4, y: y + 3), withAttributes: [.font: sectionTitleFont, .foregroundColor: UIColor.white])
         "Grade:".draw(at: CGPoint(x: margin + codeColWidth + 4, y: y + 3), withAttributes: [.font: sectionTitleFont, .foregroundColor: UIColor.white])
         "Comments:".draw(at: CGPoint(x: margin + codeColWidth + gradeColWidth + 4, y: y + 3), withAttributes: [.font: sectionTitleFont, .foregroundColor: UIColor.white])
-
         y += 16
 
-        // Comment rows
         let comments = evaluation.sections.flatMap { $0.items.filter { !$0.comment.isEmpty } }
-        let rowHeight: CGFloat = 20
-        let maxRows = 28
+        let sigBlockHeight: CGFloat = 75
+        let bottomLimit = rect.height - margin
 
         context.setStrokeColor(UIColor.lightGray.cgColor)
         context.setLineWidth(0.25)
 
-        for i in 0..<maxRows {
-            context.stroke(CGRect(x: margin, y: y, width: codeColWidth, height: rowHeight))
-            context.stroke(CGRect(x: margin + codeColWidth, y: y, width: gradeColWidth, height: rowHeight))
-            context.stroke(CGRect(x: margin + codeColWidth + gradeColWidth, y: y, width: commentColWidth, height: rowHeight))
-
-            if i < comments.count {
-                let item = comments[i]
-                item.id.uppercased().draw(at: CGPoint(x: margin + 4, y: y + 5), withAttributes: [.font: bodyFont])
-
-                if let grade = item.currentGrade {
-                    let gradeColor: UIColor = switch grade {
-                    case .notProficient: .systemRed
-                    case .gainingProficiency: .systemOrange
-                    case .proficient: UIColor(red: 0.2, green: 0.65, blue: 0.2, alpha: 1)
-                    case .notApplicable, .notEvaluated: .darkGray
-                    }
-                    grade.shortName.draw(at: CGPoint(x: margin + codeColWidth + 12, y: y + 5), withAttributes: [.font: UIFont.boldSystemFont(ofSize: 8), .foregroundColor: gradeColor])
-                }
-
-                item.comment.draw(
-                    in: CGRect(x: margin + codeColWidth + gradeColWidth + 4, y: y + 5, width: commentColWidth - 8, height: rowHeight - 6),
-                    withAttributes: [.font: bodyFont]
-                )
+        // Draw data rows with dynamic height to prevent text clipping
+        for item in comments {
+            let rowH = commentRowHeight(item.comment, width: commentColWidth - 8, font: bodyFont)
+            guard y + rowH + sigBlockHeight <= bottomLimit else { break }
+            context.stroke(CGRect(x: margin, y: y, width: codeColWidth, height: rowH))
+            context.stroke(CGRect(x: margin + codeColWidth, y: y, width: gradeColWidth, height: rowH))
+            context.stroke(CGRect(x: margin + codeColWidth + gradeColWidth, y: y, width: commentColWidth, height: rowH))
+            item.id.uppercased().draw(at: CGPoint(x: margin + 4, y: y + 5), withAttributes: [.font: bodyFont])
+            if let grade = item.currentGrade {
+                grade.shortName.draw(at: CGPoint(x: margin + codeColWidth + 12, y: y + 5), withAttributes: [.font: UIFont.boldSystemFont(ofSize: 8), .foregroundColor: gradeColor(grade)])
             }
+            item.comment.draw(
+                in: CGRect(x: margin + codeColWidth + gradeColWidth + 4, y: y + 5, width: commentColWidth - 8, height: rowH - 6),
+                withAttributes: [.font: bodyFont]
+            )
+            y += rowH
+        }
 
-            y += rowHeight
+        // Fill remaining space above signatures with blank rows for handwriting
+        while y + 20 + sigBlockHeight <= bottomLimit {
+            context.stroke(CGRect(x: margin, y: y, width: codeColWidth, height: 20))
+            context.stroke(CGRect(x: margin + codeColWidth, y: y, width: gradeColWidth, height: 20))
+            context.stroke(CGRect(x: margin + codeColWidth + gradeColWidth, y: y, width: commentColWidth, height: 20))
+            y += 20
         }
 
         y += 20
 
-        // Signature area
+        // Start a new page if signatures won't fit
+        if y + 45 > bottomLimit {
+            pdfContext.beginPage()
+            y = drawPageHeader(rect: rect, margin: margin) + 20
+        }
+
+        // Signatures
         let halfWidth = contentWidth / 2
         let sigLabelAttr: [NSAttributedString.Key: Any] = [.font: smallBoldFont]
         let sigDateFormatter = DateFormatter()
@@ -232,9 +243,7 @@ struct PDFGenerator {
         let dateWidth: CGFloat = 80
         let sigAreaWidth = halfWidth - labelWidth - dateWidth - 8
 
-        // Row 1: Pilot
         "Pilot Signature:".draw(at: CGPoint(x: margin, y: y + 10), withAttributes: sigLabelAttr)
-
         let pilotSigX = margin + labelWidth
         if let sigData = evaluation.pilotSignature, let sigImage = UIImage(data: sigData) {
             let sigW = min(sigAreaWidth, sigHeight * (sigImage.size.width / sigImage.size.height))
@@ -253,10 +262,8 @@ struct PDFGenerator {
         context.addLine(to: CGPoint(x: pilotDateX + dateWidth, y: y + sigHeight + 2))
         context.strokePath()
 
-        // Row 1: Evaluator
         let evalX = margin + halfWidth
         "Evaluator Signature:".draw(at: CGPoint(x: evalX, y: y + 10), withAttributes: sigLabelAttr)
-
         let evalSigX = evalX + labelWidth + 10
         let evalSigAreaWidth = halfWidth - labelWidth - dateWidth - 18
         if let sigData = evaluation.evaluatorSignature, let sigImage = UIImage(data: sigData) {
@@ -282,8 +289,8 @@ struct PDFGenerator {
     private static func drawPage3(context: CGContext, rect: CGRect, margin: CGFloat, evaluation: Evaluation) {
         let contentWidth = rect.width - margin * 2
         let headerFont = UIFont.boldSystemFont(ofSize: 16)
-        let sectionTitleFont = UIFont.boldSystemFont(ofSize: 9)
-        let bodyFont = UIFont.systemFont(ofSize: 8)
+        let colHeaderFont = UIFont.boldSystemFont(ofSize: 7)
+        let bodyFont = UIFont.systemFont(ofSize: 7)
 
         var y = drawPageHeader(rect: rect, margin: margin)
 
@@ -291,67 +298,88 @@ struct PDFGenerator {
         let titleAttr: [NSAttributedString.Key: Any] = [.font: headerFont]
         let titleSize = title.size(withAttributes: titleAttr)
         title.draw(at: CGPoint(x: (rect.width - titleSize.width) / 2, y: y), withAttributes: titleAttr)
-
-        let pageLabel = "Page 3 of 3"
+        let pageLabel = "Page 3"
         let pageLabelSize = pageLabel.size(withAttributes: [.font: bodyFont])
         pageLabel.draw(at: CGPoint(x: rect.width - margin - pageLabelSize.width, y: y + 4), withAttributes: [.font: bodyFont])
-
         y += titleSize.height + 6
 
-        let totalBlockTime = evaluation.flightLogs.reduce(0.0) { $0 + (Double($1.blockTime) ?? 0) }
+        let totalBlock = evaluation.flightLogs.reduce(0.0) { $0 + (Double($1.blockTime) ?? 0) }
+        let totalDay = evaluation.flightLogs.reduce(0) { $0 + $1.dayLandings }
+        let totalNight = evaluation.flightLogs.reduce(0) { $0 + $1.nightLandings }
 
         let pilotLine = "Pilot: \(evaluation.pilotInfo.fullName)     Aircraft: \(evaluation.pilotInfo.aircraftType.rawValue)"
         pilotLine.draw(at: CGPoint(x: margin, y: y), withAttributes: [.font: bodyFont])
-
-        let totalLine = "Total Block Time: \(String(format: "%.1f", totalBlockTime))"
-        let totalAttr: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 10)]
+        let totalLine = "Block: \(String(format: "%.1f", totalBlock))   Day Ldg: \(totalDay)   Night Ldg: \(totalNight)"
+        let totalAttr: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: 8)]
         let totalSize = totalLine.size(withAttributes: totalAttr)
-        totalLine.draw(at: CGPoint(x: margin + contentWidth - totalSize.width, y: y - 1), withAttributes: totalAttr)
-
+        totalLine.draw(at: CGPoint(x: margin + contentWidth - totalSize.width, y: y), withAttributes: totalAttr)
         y += 16
 
-        let dateColWidth: CGFloat = 100
-        let depColWidth: CGFloat = 120
-        let arrColWidth: CGFloat = 120
-        let blockColWidth = contentWidth - dateColWidth - depColWidth - arrColWidth
-        let rowHeight: CGFloat = 22
+        // Column widths — total = 540 (contentWidth)
+        let dateW: CGFloat = 65
+        let depW: CGFloat = 50
+        let arrW: CGFloat = 50
+        let tailW: CGFloat = 55
+        let blockW: CGFloat = 38
+        let pfW: CGFloat = 65
+        let pmW: CGFloat = 65
+        let dayW: CGFloat = 25
+        let nightW: CGFloat = 25
+        let avionicsW = contentWidth - dateW - depW - arrW - tailW - blockW - pfW - pmW - dayW - nightW
+
+        let colWidths = [dateW, depW, arrW, tailW, blockW, avionicsW, pfW, pmW, dayW, nightW]
+        let colHeaders = ["Date", "Dep", "Arr", "Tail#", "Block", "Avionics", "PF", "PM", "Day", "Ngt"]
+        let headerHeight: CGFloat = 18
+        let rowHeight: CGFloat = 20
 
         context.setFillColor(UIColor(white: 0.25, alpha: 1).cgColor)
-        context.fill(CGRect(x: margin, y: y, width: dateColWidth, height: 18))
-        context.fill(CGRect(x: margin + dateColWidth, y: y, width: depColWidth, height: 18))
-        context.fill(CGRect(x: margin + dateColWidth + depColWidth, y: y, width: arrColWidth, height: 18))
-        context.fill(CGRect(x: margin + dateColWidth + depColWidth + arrColWidth, y: y, width: blockColWidth, height: 18))
+        var xPos = margin
+        for w in colWidths {
+            context.fill(CGRect(x: xPos, y: y, width: w, height: headerHeight))
+            xPos += w
+        }
 
-        let colHeaderAttr: [NSAttributedString.Key: Any] = [.font: sectionTitleFont, .foregroundColor: UIColor.white]
-        "Date".draw(at: CGPoint(x: margin + 4, y: y + 3), withAttributes: colHeaderAttr)
-        "Departure".draw(at: CGPoint(x: margin + dateColWidth + 4, y: y + 3), withAttributes: colHeaderAttr)
-        "Arrival".draw(at: CGPoint(x: margin + dateColWidth + depColWidth + 4, y: y + 3), withAttributes: colHeaderAttr)
-        "Block Time".draw(at: CGPoint(x: margin + dateColWidth + depColWidth + arrColWidth + 4, y: y + 3), withAttributes: colHeaderAttr)
-
-        y += 18
+        let colHeaderAttr: [NSAttributedString.Key: Any] = [.font: colHeaderFont, .foregroundColor: UIColor.white]
+        xPos = margin
+        for (header, w) in zip(colHeaders, colWidths) {
+            header.draw(at: CGPoint(x: xPos + 3, y: y + 4), withAttributes: colHeaderAttr)
+            xPos += w
+        }
+        y += headerHeight
 
         context.setStrokeColor(UIColor.lightGray.cgColor)
         context.setLineWidth(0.25)
 
         let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .medium
-
-        let maxRows = 28
+        dateFormatter.dateStyle = .short
+        let maxRows = 26
 
         for i in 0..<maxRows {
-            context.stroke(CGRect(x: margin, y: y, width: dateColWidth, height: rowHeight))
-            context.stroke(CGRect(x: margin + dateColWidth, y: y, width: depColWidth, height: rowHeight))
-            context.stroke(CGRect(x: margin + dateColWidth + depColWidth, y: y, width: arrColWidth, height: rowHeight))
-            context.stroke(CGRect(x: margin + dateColWidth + depColWidth + arrColWidth, y: y, width: blockColWidth, height: rowHeight))
-
-            if i < evaluation.flightLogs.count {
-                let entry = evaluation.flightLogs[i]
-                dateFormatter.string(from: entry.date).draw(at: CGPoint(x: margin + 4, y: y + 5), withAttributes: [.font: bodyFont])
-                entry.departure.draw(at: CGPoint(x: margin + dateColWidth + 4, y: y + 5), withAttributes: [.font: bodyFont])
-                entry.arrival.draw(at: CGPoint(x: margin + dateColWidth + depColWidth + 4, y: y + 5), withAttributes: [.font: bodyFont])
-                entry.blockTime.draw(at: CGPoint(x: margin + dateColWidth + depColWidth + arrColWidth + 4, y: y + 5), withAttributes: [.font: bodyFont])
+            xPos = margin
+            for w in colWidths {
+                context.stroke(CGRect(x: xPos, y: y, width: w, height: rowHeight))
+                xPos += w
             }
-
+            if i < evaluation.flightLogs.count {
+                let e = evaluation.flightLogs[i]
+                let values: [(String, CGFloat)] = [
+                    (dateFormatter.string(from: e.date), dateW),
+                    (e.departure, depW),
+                    (e.arrival, arrW),
+                    (e.tailNumber, tailW),
+                    (e.blockTime, blockW),
+                    (e.avionics, avionicsW),
+                    (e.pf, pfW),
+                    (e.pm, pmW),
+                    (e.dayLandings > 0 ? "\(e.dayLandings)" : "", dayW),
+                    (e.nightLandings > 0 ? "\(e.nightLandings)" : "", nightW),
+                ]
+                xPos = margin
+                for (value, w) in values {
+                    value.draw(at: CGPoint(x: xPos + 3, y: y + 5), withAttributes: [.font: bodyFont])
+                    xPos += w
+                }
+            }
             y += rowHeight
         }
     }
