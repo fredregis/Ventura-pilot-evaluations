@@ -246,11 +246,11 @@ struct ItemGradeRow: View {
             }
         } else {
             item.gradeHistory.append(GradeEntry(grade: grade, date: Date(), session: session))
-            if grade.isUnsatisfactory && item.comment.isEmpty {
+            if item.comment.isEmpty {
                 item.comment = "\(Self.dateFormatter.string(from: Date())) - "
             }
         }
-        if wasUnsatisfactory && !item.isUnsatisfactory && item.comment.hasSuffix(" - ") {
+        if !item.isGraded && item.comment.hasSuffix(" - ") {
             item.comment = ""
         }
         onChange()
