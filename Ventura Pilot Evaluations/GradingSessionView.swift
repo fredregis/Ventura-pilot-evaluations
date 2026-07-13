@@ -105,6 +105,14 @@ struct GradingSessionView: View {
     }
 
     private func saveChanges() {
+        // Clear auto-filled date stubs where the user never added text
+        for i in sections.indices {
+            for j in sections[i].items.indices {
+                if sections[i].items[j].comment.hasSuffix(" - ") {
+                    sections[i].items[j].comment = ""
+                }
+            }
+        }
         guard var evaluation = store.evaluation(for: evaluationId) else { return }
         for section in sections {
             guard let sectionIndex = evaluation.sections.firstIndex(where: { $0.id == section.id }) else { continue }
