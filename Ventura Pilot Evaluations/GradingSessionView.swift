@@ -106,9 +106,10 @@ struct GradingSessionView: View {
 
     private func saveChanges() {
         // Clear auto-filled date stubs where the user never added text
+        let stub = ItemGradeRow.dateStub()
         for i in sections.indices {
             for j in sections[i].items.indices {
-                if sections[i].items[j].comment.hasSuffix(" - ") {
+                if sections[i].items[j].comment == stub {
                     sections[i].items[j].comment = ""
                 }
             }
@@ -187,14 +188,15 @@ struct ItemGradeRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(alignment: .top) {
                 Text(item.id)
                     .font(.caption.bold().monospaced())
                     .foregroundStyle(.secondary)
                     .frame(width: 32, alignment: .leading)
                 Text(item.name)
                     .font(.subheadline)
-                Spacer()
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
                 gradePicker
             }
 
@@ -240,14 +242,17 @@ struct ItemGradeRow: View {
         }
     }
 
-    private static let dateFormatter: DateFormatter = {
+    fileprivate static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .short
         return f
     }()
 
+    fileprivate static func dateStub() -> String {
+        "\(dateFormatter.string(from: Date())) - "
+    }
+
     private func setGrade(_ grade: Grade) {
-        let wasUnsatisfactory = item.isUnsatisfactory
         if item.currentGrade == grade {
             if let lastIndex = item.gradeHistory.indices.last {
                 item.gradeHistory.remove(at: lastIndex)
@@ -255,10 +260,10 @@ struct ItemGradeRow: View {
         } else {
             item.gradeHistory.append(GradeEntry(grade: grade, date: Date(), session: session))
             if item.comment.isEmpty {
-                item.comment = "\(Self.dateFormatter.string(from: Date())) - "
+                item.comment = Self.dateStub()
             }
         }
-        if !item.isGraded && item.comment.hasSuffix(" - ") {
+        if !item.isGraded && item.comment == Self.dateStub() {
             item.comment = ""
         }
         onChange()

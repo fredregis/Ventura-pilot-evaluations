@@ -11,7 +11,7 @@ struct FlightLogView: View {
 
     var body: some View {
         List {
-            ForEach(entries.indices, id: \.self) { index in
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 Section {
                     FlightLogEntryRow(entry: $entries[index], crewNames: crewNames) {
                         hasChanges = true
@@ -24,7 +24,7 @@ struct FlightLogView: View {
                             .textCase(nil)
                         Spacer()
                         Button(role: .destructive) {
-                            entries.remove(at: index)
+                            entries.removeAll { $0.id == entry.id }
                             hasChanges = true
                         } label: {
                             Image(systemName: "trash")
